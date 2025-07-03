@@ -18,7 +18,7 @@ class _ListeRecettesEcrantState extends State<ListeRecettesEcrant> {
   void initState() {
     super.initState();
     // On récupère toutes les recettes depuis la base de données
-    _recettesFuture = DatabaseHelper().getRecettes();
+    _recettesFuture = DatabaseHelper().getAllRecettes();
   }
 
   @override

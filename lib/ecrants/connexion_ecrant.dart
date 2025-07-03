@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../database/db_helpert.dart';
+import '../database/db_helpert.dart'; // Vérifie bien le nom correct : db_helper.dart ?
+import '../models/user.dart';
 
 class LoginEcrant extends StatefulWidget {
   const LoginEcrant({super.key});
@@ -29,19 +30,15 @@ class _LoginEcrantState extends State<LoginEcrant> {
     });
 
     final dbHelper = DatabaseHelper();
-    final user = await dbHelper.getUserByEmail(_emailController.text.trim());
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
+
+    // Utilisation de la méthode loginUser avec hash du mot de passe
+    final User? user = await dbHelper.loginUser(email, password);
 
     if (user == null) {
       setState(() {
-        _errorMessage = "Utilisateur non trouvé";
-        _loading = false;
-      });
-      return;
-    }
-
-    if (user['password'] != _passwordController.text.trim()) {
-      setState(() {
-        _errorMessage = "Mot de passe incorrect";
+        _errorMessage = "Email ou mot de passe incorrect";
         _loading = false;
       });
       return;
@@ -50,7 +47,8 @@ class _LoginEcrantState extends State<LoginEcrant> {
     _emailController.clear();
     _passwordController.clear();
 
-    Navigator.pushReplacementNamed(context, '/accueil');
+    // Redirige vers l'accueil après connexion
+    Navigator.pushReplacementNamed(context, '/accueil', arguments: user);
   }
 
   @override
@@ -63,14 +61,14 @@ class _LoginEcrantState extends State<LoginEcrant> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.restaurant_menu, size: 80, color: Color.fromARGB(255, 251, 251, 251)),
+              const Icon(Icons.restaurant_menu, size: 80, color: Colors.white),
               const SizedBox(height: 16),
               const Text(
                 'Connexion',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color.fromARGB(255, 255, 255, 255),
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 32),
@@ -98,7 +96,10 @@ class _LoginEcrantState extends State<LoginEcrant> {
               ),
               const SizedBox(height: 16),
               if (_errorMessage != null)
-                Text(_errorMessage!, style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255))),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.white),
+                ),
               const SizedBox(height: 24),
               _loading
                   ? const CircularProgressIndicator()
@@ -107,7 +108,7 @@ class _LoginEcrantState extends State<LoginEcrant> {
                       child: ElevatedButton(
                         onPressed: _login,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                          backgroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -116,8 +117,9 @@ class _LoginEcrantState extends State<LoginEcrant> {
                         child: const Text(
                           'Se connecter',
                           style: TextStyle(
-                            fontSize: 16, 
-                            color: Color.fromARGB(255, 210, 26, 26),),
+                            fontSize: 16,
+                            color: Color.fromARGB(255, 210, 26, 26),
+                          ),
                         ),
                       ),
                     ),
@@ -127,7 +129,7 @@ class _LoginEcrantState extends State<LoginEcrant> {
                 child: const Text(
                   "Pas encore inscrit ? S'inscrire",
                   style: TextStyle(color: Colors.white),
-                  ),
+                ),
               ),
             ],
           ),

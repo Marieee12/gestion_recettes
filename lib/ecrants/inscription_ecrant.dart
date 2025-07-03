@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../database/db_helpert.dart';
+import '../models/user.dart';
 
 class InscriptionEcrant extends StatefulWidget {
   const InscriptionEcrant({super.key});
@@ -10,6 +11,7 @@ class InscriptionEcrant extends StatefulWidget {
 
 class _InscriptionEcrantState extends State<InscriptionEcrant> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -19,6 +21,7 @@ class _InscriptionEcrantState extends State<InscriptionEcrant> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -42,23 +45,34 @@ class _InscriptionEcrantState extends State<InscriptionEcrant> {
 
     try {
       final dbHelper = DatabaseHelper();
-      await dbHelper.insertUser(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+
+      final user = User(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
-      _emailController.clear();
-      _passwordController.clear();
-      _confirmController.clear();
+      final result = await dbHelper.insertUser(user);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inscription réussie, connecte-toi !')),
-      );
+      if (result == -1) {
+        setState(() {
+          _errorMessage = "Cet email est déjà utilisé";
+        });
+      } else {
+        _nameController.clear();
+        _emailController.clear();
+        _passwordController.clear();
+        _confirmController.clear();
 
-      Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inscription réussie, connecte-toi !')),
+        );
+
+        Navigator.pop(context);
+      }
     } catch (e) {
       setState(() {
-        _errorMessage = "Erreur : cet email est peut-être déjà utilisé";
+        _errorMessage = "Erreur inconnue : $e";
       });
     } finally {
       setState(() {
@@ -78,17 +92,31 @@ class _InscriptionEcrantState extends State<InscriptionEcrant> {
             key: _formKey,
             child: Column(
               children: [
-                const Icon(Icons.person_add_alt_1, size: 80, color: Color.fromARGB(255, 255, 255, 255)),
+                const Icon(Icons.person_add_alt_1, size: 80, color: Colors.white),
                 const SizedBox(height: 16),
                 const Text(
                   'Créer un compte',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 255, 255, 255),
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 32),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Nom complet',
+                    prefixIcon: const Icon(Icons.person),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    errorStyle: const TextStyle(color: Colors.white),
+                  ),
+                  validator: (value) =>
+                      value != null && value.length >= 2 ? null : 'Nom requis',
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
                   decoration: InputDecoration(
@@ -134,7 +162,7 @@ class _InscriptionEcrantState extends State<InscriptionEcrant> {
                 ),
                 const SizedBox(height: 24),
                 if (_errorMessage != null)
-                  Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                  Text(_errorMessage!, style: const TextStyle(color: Colors.white)),
                 const SizedBox(height: 12),
                 _loading
                     ? const CircularProgressIndicator()
@@ -143,7 +171,7 @@ class _InscriptionEcrantState extends State<InscriptionEcrant> {
                         child: ElevatedButton(
                           onPressed: _register,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                            backgroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -153,7 +181,8 @@ class _InscriptionEcrantState extends State<InscriptionEcrant> {
                             'S’inscrire',
                             style: TextStyle(
                               fontSize: 16,
-                              color: Color.fromARGB(255, 210, 26, 26),),
+                              color: Color.fromARGB(255, 210, 26, 26),
+                            ),
                           ),
                         ),
                       ),
@@ -162,7 +191,7 @@ class _InscriptionEcrantState extends State<InscriptionEcrant> {
                   child: const Text(
                     "Déjà inscrit ? Se connecter",
                     style: TextStyle(color: Colors.white),
-                    ),
+                  ),
                 ),
               ],
             ),

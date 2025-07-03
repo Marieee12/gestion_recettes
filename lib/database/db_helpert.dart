@@ -1,86 +1,135 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../models/user.dart';
 import '../models/recette.dart';
+import 'password_hasher.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
-  factory DatabaseHelper() => _instance;
+  static Database? _database;
+
   DatabaseHelper._internal();
 
-  Database? _db;
+  factory DatabaseHelper() => _instance;
 
-  Future<Database> get db async {
-    if (_db != null) return _db!;
-    _db = await initDb();
-    return _db!;
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
   }
 
-  Future<Database> initDb() async {
-    final path = join(await getDatabasesPath(), 'app.db'); // Renommé pour généraliser
+  Future<Database> _initDatabase() async {
+    String path = join(await getDatabasesPath(), 'recettes_database.db');
     return await openDatabase(
       path,
       version: 1,
-      onCreate: (Database db, int version) async {
-        // Création de la table recettes
-        await db.execute('''
-          CREATE TABLE recettes(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            titre TEXT,
-            ingredients TEXT,
-            etapes TEXT,
-            imagePath TEXT
-          )
-        ''');
-
-        // Création de la table users pour l'authentification
-        await db.execute('''
-          CREATE TABLE users(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-          )
-        ''');
-      },
+      onCreate: _onCreate,
     );
   }
 
-  // ----- Recettes -----
-  Future<int> insertRecette(Recette recette) async {
-    final dbClient = await db;
-    return await dbClient.insert('recettes', recette.toMap());
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE users(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE recettes(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        titre TEXT NOT NULL,
+        ingredients TEXT NOT NULL,
+        etapes TEXT NOT NULL,
+        imagePath TEXT
+      )
+    ''');
+
+    print('Tables users et recettes créées avec succès!');
   }
 
-  Future<List<Recette>> getRecettes() async {
-    final dbClient = await db;
-    final List<Map<String, dynamic>> maps = await dbClient.query('recettes');
-    return maps.map((map) => Recette.fromMap(map)).toList();
+
+  Future<int> insertUser(User user) async {
+    final db = await database;
+    try {
+      final hashedPassword = PasswordHasher.hashPassword(user.password);
+      final newUser = User(
+        id: user.id, // id is auto-incremented, so it can be null
+        name: user.name,
+        email: user.email,
+        password: hashedPassword,
+      );
+      return await db.insert('users', newUser.toMap());
+    } catch (e) {
+      if (e.toString().contains('UNIQUE constraint failed')) {
+        print('Email déjà utilisé');
+        return -1;
+      }
+      print('Erreur lors de l\'insertion: $e');
+      return -1;
+    }
   }
 
-  Future<void> deleteRecette(int id) async {
-    final dbClient = await db;
-    await dbClient.delete('recettes', where: 'id = ?', whereArgs: [id]);
-  }
-
-  // ----- Users -----
-  Future<int> insertUser(String email, String password) async {
-    final dbClient = await db;
-    return await dbClient.insert(
-      'users',
-      {'email': email, 'password': password},
-      conflictAlgorithm: ConflictAlgorithm.abort, // pour éviter les doublons email
-    );
-  }
-
-  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
-    final dbClient = await db;
-    final res = await dbClient.query(
-      'users',
-      where: 'email = ?',
-      whereArgs: [email],
-    );
-    if (res.isNotEmpty) {
-      return res.first;
+  Future<User?> loginUser(String email, String password) async {
+    final db = await database;
+    final maps = await db.query('users', where: 'email = ?', whereArgs: [email]);
+    if (maps.isNotEmpty) {
+      final user = User.fromMap(maps.first);
+      final isValid = PasswordHasher.verifyPassword(password, user.password);
+      return isValid ? user : null;
     }
     return null;
   }
+
+  Future<bool> emailExists(String email) async {
+    final db = await database;
+    final maps = await db.query('users', where: 'email = ?', whereArgs: [email]);
+    return maps.isNotEmpty;
+  }
+
+  Future<List<User>> getAllUsers() async {
+    final db = await database;
+    final maps = await db.query('users');
+    return List.generate(maps.length, (i) => User.fromMap(maps[i]));
+  }
+
+  Future<int> deleteUser(int id) async {
+    final db = await database;
+    return await db.delete('users', where: 'id = ?', whereArgs: [id]);
+  }
+
+
+  Future<int> insertRecette(Recette recette) async {
+    final db = await database;
+    return await db.insert('recettes', recette.toMap());
+  }
+
+  Future<List<Recette>> getAllRecettes() async {
+    final db = await database;
+    final maps = await db.query('recettes');
+    return List.generate(maps.length, (i) => Recette.fromMap(maps[i]));
+  }
+
+  Future<int> deleteRecette(int id) async {
+    final db = await database;
+    return await db.delete('recettes', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> updateRecette(Recette recette) async {
+    final db = await database;
+    return await db.update(
+      'recettes',
+      recette.toMap(),
+      where: 'id = ?',
+      whereArgs: [recette.id],
+    );
+  }
+
+  Future<void> closeDatabase() async {
+    final db = await database;
+    await db.close();
+  }
 }
+

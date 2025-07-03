@@ -18,7 +18,7 @@ class AccueilEcrant extends StatelessWidget {
             color: Colors.white,
             letterSpacing: 1.2,
           ),
-        ),
+        ), 
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
